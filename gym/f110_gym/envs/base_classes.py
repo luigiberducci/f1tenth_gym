@@ -371,7 +371,6 @@ class RaceCar(object):
 
             # dynamics integration
             self.state = self.state + self.time_step * (1 / 6) * (k1 + 2 * k2 + 2 * k3 + k4)
-            print(self.state)
 
         elif self.integrator is Integrator.Euler:
             f = vehicle_dynamics_st(
