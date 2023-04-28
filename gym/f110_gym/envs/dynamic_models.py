@@ -182,7 +182,7 @@ def vehicle_dynamics_st(x, u_init, mu, C_Sf, C_Sr, lf, lr, h, m, I, s_min, s_max
     # wheelbase
     lwb = lf + lr
 
-    DYNAMICS_MODEL = "kinematic_beta"
+    DYNAMICS_MODEL = "kinematic"
     DYNAMICS_MODELS = ["kinematic_beta", "kinematic", "dynamic"]
 
     # input constraints
