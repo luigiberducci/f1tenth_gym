@@ -32,7 +32,7 @@ import warnings
 import numpy as np
 from numba import njit
 
-from f110_gym.envs.dynamic_models import vehicle_dynamics_st, pid
+from f110_gym.envs.dynamic_models import vehicle_dynamics_st, pid, DynamicsModel
 from f110_gym.envs.laser_models import ScanSimulator2D, check_ttc_jit, ray_cast
 from f110_gym.envs.collision_models import get_vertices, collision_multiple
 
@@ -67,7 +67,7 @@ class RaceCar(object):
     side_distances = None
 
     def __init__(self, params, seed, is_ego=False, time_step=0.01, num_beams=1080, fov=4.7,
-                 integrator=Integrator.Euler):
+                 integrator=Integrator.Euler, dynamics_model=DynamicsModel.DynamicST):
         """
         Init function
 
@@ -90,8 +90,14 @@ class RaceCar(object):
         self.num_beams = num_beams
         self.fov = fov
         self.integrator = integrator
+        self.dynamics_model = dynamics_model
+
         if self.integrator is Integrator.RK4:
             warnings.warn(f"Chosen integrator is RK4. This is different from previous versions of the gym.")
+
+        if self.dynamics_model is not DynamicsModel.DynamicST:
+            warnings.warn(
+                f"Chosen dynamics {self.dynamics_model}. This is different from previous versions of the gym.")
 
         # state is [x, y, steer_angle, vel, yaw_angle, yaw_rate, slip_angle]
         self.state = np.zeros((7,))
@@ -301,7 +307,8 @@ class RaceCar(object):
                 self.params['v_switch'],
                 self.params['a_max'],
                 self.params['v_min'],
-                self.params['v_max'])
+                self.params['v_max'],
+                self.dynamics_model)
 
             k2_state = self.state + self.time_step * (k1 / 2)
 
@@ -323,7 +330,8 @@ class RaceCar(object):
                 self.params['v_switch'],
                 self.params['a_max'],
                 self.params['v_min'],
-                self.params['v_max'])
+                self.params['v_max'],
+                self.dynamics_model)
 
             k3_state = self.state + self.time_step * (k2 / 2)
 
@@ -345,7 +353,8 @@ class RaceCar(object):
                 self.params['v_switch'],
                 self.params['a_max'],
                 self.params['v_min'],
-                self.params['v_max'])
+                self.params['v_max'],
+                self.dynamics_model)
 
             k4_state = self.state + self.time_step * k3
 
@@ -367,7 +376,8 @@ class RaceCar(object):
                 self.params['v_switch'],
                 self.params['a_max'],
                 self.params['v_min'],
-                self.params['v_max'])
+                self.params['v_max'],
+                self.dynamics_model)
 
             # dynamics integration
             self.state = self.state + self.time_step * (1 / 6) * (k1 + 2 * k2 + 2 * k3 + k4)
@@ -391,7 +401,8 @@ class RaceCar(object):
                 self.params['v_switch'],
                 self.params['a_max'],
                 self.params['v_min'],
-                self.params['v_max'])
+                self.params['v_max'],
+                self.dynamics_model)
             self.state = self.state + self.time_step * f
 
         else:
@@ -459,7 +470,8 @@ class Simulator(object):
 
     """
 
-    def __init__(self, params, num_agents, seed, time_step=0.01, ego_idx=0, integrator=Integrator.RK4):
+    def __init__(self, params, num_agents, seed, time_step=0.01, ego_idx=0, integrator=Integrator.RK4,
+                 dynamics_model=DynamicsModel.DynamicST):
         """
         Init function
 
@@ -486,10 +498,12 @@ class Simulator(object):
         # initializing agents
         for i in range(self.num_agents):
             if i == ego_idx:
-                ego_car = RaceCar(params, self.seed, is_ego=True, time_step=self.time_step, integrator=integrator)
+                ego_car = RaceCar(params, self.seed, is_ego=True, time_step=self.time_step,
+                                  integrator=integrator, dynamics_model=dynamics_model)
                 self.agents.append(ego_car)
             else:
-                agent = RaceCar(params, self.seed, is_ego=False, time_step=self.time_step, integrator=integrator)
+                agent = RaceCar(params, self.seed, is_ego=False, time_step=self.time_step,
+                                integrator=integrator, dynamics_model=dynamics_model)
                 self.agents.append(agent)
 
     def set_map(self, map_path, map_ext):

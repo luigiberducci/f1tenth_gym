@@ -18,12 +18,20 @@ Following the implementation of commanroad's Single Track Dynamics model
 Original implementation: https://gitlab.lrz.de/tum-cps/commonroad-vehicle-models/
 Author: Hongrui Zheng
 """
+from enum import Enum, IntEnum
 
 import numpy as np
 from numba import njit
 
 import unittest
 import time
+
+
+class DynamicsModel(IntEnum):
+    KinematicST = 1
+    DynamicST = 2
+    KinematicBicycle_beta = 3
+
 
 @njit(cache=True)
 def accl_constraints(vel, accl, v_switch, a_max, v_min, v_max):
@@ -44,7 +52,7 @@ def accl_constraints(vel, accl, v_switch, a_max, v_min, v_max):
 
     # positive accl limit
     if vel > v_switch:
-        pos_limit = a_max*v_switch/vel
+        pos_limit = a_max * v_switch / vel
     else:
         pos_limit = a_max
 
@@ -152,7 +160,7 @@ def vehicle_dynamics_ks_beta(x, u_init, mu, C_Sf, C_Sr, lf, lr, h, m, I, s_min, 
 
 @njit(cache=True)
 def vehicle_dynamics_st(x, u_init, mu, C_Sf, C_Sr, lf, lr, h, m, I, s_min, s_max, sv_min, sv_max, v_switch,
-                        a_max, v_min, v_max):
+                        a_max, v_min, v_max, dynamics_model):
     """
     Single Track Dynamic Vehicle Dynamics.
 
@@ -172,6 +180,7 @@ def vehicle_dynamics_st(x, u_init, mu, C_Sf, C_Sr, lf, lr, h, m, I, s_min, s_max
                 u3: steering angle, from original control input
                 u4: longitudinal velocity, from original control input
 
+            dynamics_model (enum): dynamics model to use
         Returns:
             f (numpy.ndarray): right hand side of differential equations
     """
@@ -182,11 +191,8 @@ def vehicle_dynamics_st(x, u_init, mu, C_Sf, C_Sr, lf, lr, h, m, I, s_min, s_max
     # wheelbase
     lwb = lf + lr
 
-    DYNAMICS_MODEL = "kinematic"
-    DYNAMICS_MODELS = ["kinematic_beta", "kinematic", "dynamic"]
-
     # input constraints
-    if DYNAMICS_MODEL == "kinematic_beta":
+    if dynamics_model is DynamicsModel.KinematicBicycle_beta:
         # input: beta and longitudinal acceleration
         beta_min, beta_max = -0.22, 0.22
         delta = u_init[2]
@@ -209,7 +215,7 @@ def vehicle_dynamics_st(x, u_init, mu, C_Sf, C_Sr, lf, lr, h, m, I, s_min, s_max
             0.0,  # yaw rate
             0.0  # beta
         ])
-    elif DYNAMICS_MODEL == "kinematic":
+    elif dynamics_model is DynamicsModel.KinematicST:
         # input: steering velocity and longitudinal acceleration
         u = np.array([steering_constraint(x[2], u_init[0], s_min, s_max, sv_min, sv_max),
                       accl_constraints(x[3], u_init[1], v_switch, a_max, v_min, v_max)])
@@ -221,7 +227,7 @@ def vehicle_dynamics_st(x, u_init, mu, C_Sf, C_Sr, lf, lr, h, m, I, s_min, s_max
         f = np.hstack((f_ks, np.array([u[1] / lwb * np.tan(x[2]) + x[3] / (lwb * np.cos(x[2]) ** 2) * u[0],
                                        0])))
 
-    elif DYNAMICS_MODEL == "dynamic":
+    elif dynamics_model is DynamicsModel.DynamicST:
         # input: steering velocity and longitudinal acceleration
         u = np.array([steering_constraint(x[2], u_init[0], s_min, s_max, sv_min, sv_max),
                       accl_constraints(x[3], u_init[1], v_switch, a_max, v_min, v_max)])

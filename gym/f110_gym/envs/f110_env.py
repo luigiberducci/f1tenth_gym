@@ -29,6 +29,7 @@ import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
 
+from f110_gym.envs.dynamic_models import DynamicsModel
 # base classes
 from f110_gym.envs.base_classes import Simulator, Integrator
 
@@ -83,6 +84,8 @@ class F110Env(gym.Env):
             v_max: Maximum longitudinal velocity
             width: width of the vehicle in meters
             length: length of the vehicle in meters
+
+            dynamics_model: str identifying the dynamics model used
 
             num_agents (int, default=2): number of agents in the environment
 
@@ -150,6 +153,12 @@ class F110Env(gym.Env):
         except:
             self.integrator = Integrator.RK4
 
+        # default dynamics model
+        try:
+            self.dynamics_model = kwargs['dynamics_model']
+        except:
+            self.dynamics_model = DynamicsModel.DynamicST
+
         # radius to consider done
         self.start_thresh = 0.5  # 10cm
 
@@ -181,7 +190,8 @@ class F110Env(gym.Env):
         self.start_rot = np.eye(2)
 
         # initiate stuff
-        self.sim = Simulator(self.params, self.num_agents, self.seed, time_step=self.timestep, integrator=self.integrator)
+        self.sim = Simulator(self.params, self.num_agents, self.seed, time_step=self.timestep,
+                             integrator=self.integrator, dynamics_model=self.dynamics_model)
         self.sim.set_map(self.map_path, self.map_ext)
 
         # stateful observations for rendering
