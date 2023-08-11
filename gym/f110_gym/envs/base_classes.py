@@ -629,10 +629,23 @@ class Simulator(object):
         Returns:
             None
         """
+        # loop over poses to reset
+        if self.num_agents < len(self.agents):
+            # initializing agents
+
+            self.agents = []
+            for i in range(self.num_agents):
+                if i == self.ego_idx:
+                    ego_car = RaceCar(self.params, self.seed, is_ego=True, time_step=self.time_step,
+                                      integrator=self.integrator, dynamics_model=self.dynamics_model)
+                    self.agents.append(ego_car)
+                else:
+                    agent = RaceCar(self.params, self.seed, is_ego=False, time_step=self.time_step,
+                                    integrator=self.integrator, dynamics_model=self.dynamics_model)
+                    self.agents.append(agent)
 
         if poses.shape[0] != self.num_agents:
             raise ValueError('Number of poses for reset does not match number of agents.')
 
-        # loop over poses to reset
         for i in range(self.num_agents):
             self.agents[i].reset(poses[i, :])
