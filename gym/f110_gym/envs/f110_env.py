@@ -343,13 +343,16 @@ class F110Env(gym.Env):
         obs, reward, done, info = self.step(action)
 
         self.render_obs = {
-            'ego_idx': obs['ego_idx'],
-            'poses_x': obs['poses_x'],
-            'poses_y': obs['poses_y'],
-            'poses_theta': obs['poses_theta'],
-            'lap_times': obs['lap_times'],
-            'lap_counts': obs['lap_counts']
-            }
+            "ego_idx": self.sim.ego_idx,
+            "poses_x": self.sim.agent_poses[:, 0],
+            "poses_y": self.sim.agent_poses[:, 1],
+            "poses_theta": self.sim.agent_poses[:, 2],
+            "steering_angles": self.sim.agent_steerings,
+            "lap_times": self.lap_times,
+            "lap_counts": self.lap_counts,
+            "collisions": self.sim.collisions,
+            "sim_time": self.current_time,
+        }
         
         return obs, reward, done, info
 
