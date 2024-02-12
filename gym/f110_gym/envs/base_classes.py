@@ -491,7 +491,8 @@ class Simulator(object):
         self.ego_idx = ego_idx
         self.params = params
         self.agent_poses = np.empty((self.num_agents, 3))
-        self.agents = []
+        self.agent_steerings = np.empty((self.num_agents,))
+        self.agents: list[RaceCar] = []
         self.collisions = np.zeros((self.num_agents,))
         self.collision_idx = -1 * np.ones((self.num_agents,))
 
@@ -505,6 +506,10 @@ class Simulator(object):
                 agent = RaceCar(params, self.seed, is_ego=False, time_step=self.time_step,
                                 integrator=integrator, dynamics_model=dynamics_model)
                 self.agents.append(agent)
+
+        # initialize agents scan, to be accessed from observation types
+        num_beams = self.agents[0].scan_simulator.num_beams
+        self.agent_scans = np.empty((self.num_agents, num_beams))
 
     def set_map(self, map_path, map_ext):
         """
@@ -555,8 +560,11 @@ class Simulator(object):
         # get vertices of all agents
         all_vertices = np.empty((self.num_agents, 4, 2))
         for i in range(self.num_agents):
-            all_vertices[i, :, :] = get_vertices(np.append(self.agents[i].state[0:2], self.agents[i].state[4]),
-                                                 self.params['length'], self.params['width'])
+            all_vertices[i, :, :] = get_vertices(
+                np.append(self.agents[i].state[0:2], self.agents[i].state[4]),
+                self.params["length"],
+                self.params["width"],
+            )
         self.collisions, self.collision_idx = collision_multiple(all_vertices)
 
     def step(self, control_inputs):
@@ -565,36 +573,37 @@ class Simulator(object):
 
         Args:
             control_inputs (np.ndarray (num_agents, 2)): control inputs of all agents, first column is desired steering angle, second column is desired velocity
-        
+
         Returns:
             observations (dict): dictionary for observations: poses of agents, current laser scan of each agent, collision indicators, etc.
         """
-
-        agent_scans = []
 
         # looping over agents
         for i, agent in enumerate(self.agents):
             # update each agent's pose
             current_scan = agent.update_pose(control_inputs[i, 0], control_inputs[i, 1])
-            agent_scans.append(current_scan)
+            self.agent_scans[i, :] = current_scan
 
             # update sim's information of agent poses
             self.agent_poses[i, :] = np.append(agent.state[0:2], agent.state[4])
+            self.agent_steerings[i] = agent.state[2]
 
         # check collisions between all agents
         self.check_collision()
 
         for i, agent in enumerate(self.agents):
             # update agent's information on other agents
-            opp_poses = np.concatenate((self.agent_poses[0:i, :], self.agent_poses[i + 1:, :]), axis=0)
+            opp_poses = np.concatenate(
+                (self.agent_poses[0:i, :], self.agent_poses[i + 1 :, :]), axis=0
+            )
             agent.update_opp_poses(opp_poses)
 
             # update each agent's current scan based on other agents
-            agent.update_scan(agent_scans, i)
+            agent.update_scan(self.agent_scans, i)
 
             # update agent collision with environment
             if agent.in_collision:
-                self.collisions[i] = 1.
+                self.collisions[i] = 1.0
 
         # fill in observations
         # state is [x, y, steer_angle, vel, yaw_angle, yaw_rate, slip_angle]
@@ -609,7 +618,7 @@ class Simulator(object):
                         'ang_vels_z': [],
                         'collisions': self.collisions}
         for i, agent in enumerate(self.agents):
-            observations['scans'].append(agent_scans[i])
+            observations['scans'].append(self.agent_scans[i])
             observations['poses_x'].append(agent.state[0])
             observations['poses_y'].append(agent.state[1])
             observations['poses_theta'].append(agent.state[4])
