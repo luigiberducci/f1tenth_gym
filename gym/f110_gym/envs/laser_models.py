@@ -373,6 +373,8 @@ class ScanSimulator2D(object):
         self.map_height = None
         self.map_width = None
         self.map_resolution = None
+        self.map_path = None
+        self.map_img = None
         self.dt = None
         
         # precomputing corresponding cosines and sines of the angle array
@@ -391,13 +393,13 @@ class ScanSimulator2D(object):
             Returns:
                 flag (bool): if image reading and loading is successful
         """
-        # TODO: do we open the option to flip the images, and turn rgb into grayscale? or specify the exact requirements in documentation.
-        # TODO: throw error if image specification isn't met
+        if self.map_img and self.map_path == map_path:
+            return True
 
         # load map image
         map_img_path = os.path.splitext(map_path)[0] + map_ext
-        self.map_img = np.array(Image.open(map_img_path).transpose(Image.FLIP_TOP_BOTTOM))
-        self.map_img = self.map_img.astype(np.float64)
+        map_img = Image.open(map_img_path).transpose(Image.FLIP_TOP_BOTTOM)
+        self.map_img = np.array(map_img.convert('L')).astype(np.float64)
 
         # grayscale -> binary
         self.map_img[self.map_img <= 128.] = 0.
@@ -423,6 +425,8 @@ class ScanSimulator2D(object):
 
         # get the distance transform
         self.dt = get_dt(self.map_img, self.map_resolution)
+
+        self.map_path = map_path
 
         return True
 
