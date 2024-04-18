@@ -393,7 +393,7 @@ class ScanSimulator2D(object):
             Returns:
                 flag (bool): if image reading and loading is successful
         """
-        if self.map_img and self.map_path == map_path:
+        if self.map_img is not None and self.map_path == map_path:
             return True
 
         # load map image
